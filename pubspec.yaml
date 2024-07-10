@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   image_picker: ^1.1.2 # image picker   
+  gallery_saver: ^2.3.2 # gallery saver
+  # image_cropper: ^4.0.1  # image croper
   camera: ^0.11.0+1
   gap: ^3.0.1
   external_path: ^1.0.3
@@ -25,4 +27,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/splash_image.png
-
+    - assets/main_image.png

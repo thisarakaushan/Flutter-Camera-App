@@ -1,20 +1,34 @@
+import 'dart:async';
 import 'dart:io';
-
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 
 class MainPage extends StatefulWidget {
   final List<CameraDescription> cameras;
-  const MainPage({Key? key, required this.cameras}) : super(key: key);
+  const MainPage({super.key, required this.cameras});
 
   @override
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage>
+    with SingleTickerProviderStateMixin {
   late CameraController cameraController;
   late Future<void> cameraValue;
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    startCamera(0);
+    _controller = AnimationController(
+      duration: const Duration(
+          seconds: 30), // Adjust duration as needed to change rotation speed
+      vsync: this,
+    )..repeat();
+  }
 
   void startCamera(int camera) {
     cameraController = CameraController(
@@ -35,22 +49,32 @@ class _MainPageState extends State<MainPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              GalleryPage(imagesList: [File(pickedFile.path)]),
+          builder: (context) => GalleryPage(image: File(pickedFile.path)),
         ),
       );
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    startCamera(0);
+  Future<void> _capturePhoto() async {
+    try {
+      await cameraValue; // Ensure the camera is initialized
+      final image = await cameraController.takePicture();
+
+      // Save the captured photo to the system gallery
+      await GallerySaver.saveImage(image.path, albumName: 'MyAppPhotos');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Photo saved to gallery')),
+      );
+    } catch (e) {
+      print(e); // Handle error appropriately
+    }
   }
 
   @override
   void dispose() {
     cameraController.dispose();
+    _controller.dispose(); // Dispose animation controller
     super.dispose();
   }
 
@@ -120,9 +144,19 @@ class _MainPageState extends State<MainPage> {
                     child: CameraPreview(cameraController),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Image.asset('assets/splash_image.png', height: 100, width: 100),
-                const SizedBox(height: 20),
+                const SizedBox(height: 5),
+                AnimatedBuilder(
+                  animation: _controller,
+                  child: Image.asset('assets/main_image.png',
+                      height: 131, width: 131),
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: _controller.value * 2.0 * 3.141592653589793,
+                      child: child,
+                    );
+                  },
+                ),
+                const SizedBox(height: 5), // Adjust SizedBox for spacing
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
                     colors: [
@@ -144,6 +178,36 @@ class _MainPageState extends State<MainPage> {
                 ),
                 const Spacer(),
                 Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(35),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xff2753cf),
+                        Color(0xffc882ff),
+                        Color(0xff46edfe)
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xff0e235a),
+                        borderRadius: BorderRadius.circular(35),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt, color: Colors.white),
+                        onPressed: _capturePhoto,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
                   width: 270,
                   height: 74,
                   decoration: BoxDecoration(
@@ -159,8 +223,7 @@ class _MainPageState extends State<MainPage> {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(
-                        2), // Padding to create the border effect
+                    padding: const EdgeInsets.all(2),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: const Color(0xff0e235a),
@@ -196,9 +259,9 @@ class _MainPageState extends State<MainPage> {
 }
 
 class GalleryPage extends StatelessWidget {
-  final List<File> imagesList;
+  final File image;
 
-  const GalleryPage({Key? key, required this.imagesList}) : super(key: key);
+  const GalleryPage({Key? key, required this.image}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -206,22 +269,8 @@ class GalleryPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Gallery'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 4.0,
-            mainAxisSpacing: 4.0,
-          ),
-          itemCount: imagesList.length,
-          itemBuilder: (context, index) {
-            return Image.file(
-              imagesList[index],
-              fit: BoxFit.cover,
-            );
-          },
-        ),
+      body: Center(
+        child: Image.file(image, fit: BoxFit.cover),
       ),
     );
   }
